@@ -67,7 +67,7 @@
                 {{ t.name }} - USD
               </dt>
               <dd class="mt-1 text-3xl font-semibold text-gray-900">
-                {{ t.price }}
+                {{ formatPrice(t.price) }}
               </dd>
             </div>
             <div class="w-full border-t border-gray-200"></div>
@@ -110,6 +110,7 @@
 
 <script>
 import { isProxy, toRaw } from "vue";
+import { loadTickers } from './api.js'
 
 export default {
   name: "App",
@@ -167,7 +168,12 @@ export default {
 
   },
   methods: {
-
+    formatPrice(price) {
+      if (price === '-') {
+        return price;
+      }
+      return price > 1 ? price.toFixed(2) : price.toPrecision(2);
+    },
 
     addByExample(e) {
 
@@ -175,23 +181,17 @@ export default {
       this.add();
     },
 
-    subscribeToUpdates(tickerName) {
-      setInterval(async () => {
-        const f = await fetch(
-          `https://min-api.cryptocompare.com/data/price?fsym=${tickerName}&tsyms=USD&api_key=b28f4d17ee44cf0a57d731304041322c33d63e8741d1652f9fc6615859a67f43`
-        );
-        const data = await f.json();
-
-        // currentTicker.price =  data.USD > 1 ? data.USD.toFixed(2) : data.USD.toPrecision(2);
-        if (data.USD) {
-          this.tickers.find((t) => t.name === tickerName).price = data.USD > 1 ? data.USD.toFixed(2) : data.USD.toPrecision(2);
-        }
-
-        if (this.selectedTicker?.name === tickerName) {
-          this.graph.push(data.USD);
-        }
-      }, 5000);
+    async updateTickers() {
+      if (!this.tickers.length) {
+        return
+      }
+      const exchangeData = await loadTickers(this.tickers.map(t => t.name));
+      this.tickers.forEach(t => {
+        const price = exchangeData[t.name.toUpperCase()]
+        t.price = price ?? '-';
+      })
     },
+
     add() {
       const currentTicker = {
         name: this.ticker.toLocaleUpperCase(),
@@ -201,7 +201,7 @@ export default {
       if (!this.tickers.find((t) => t.name === currentTicker.name)) {
         this.tickers = [...this.tickers, currentTicker]
 
-        this.subscribeToUpdates(currentTicker.name);
+        // this.subscribeToUpdates(currentTicker.name);
         this.ticker = "";
       } else {
         this.copy = true;
@@ -286,9 +286,7 @@ export default {
     const tickersData = localStorage.getItem("cryptonomicon-list");
     if (tickersData) {
       this.tickers = JSON.parse(tickersData);
-      this.tickers.forEach((t) => {
-        this.subscribeToUpdates(t.name);
-      });
+      setInterval(this.updateTickers, 5000)
     }
   },
 };
