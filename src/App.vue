@@ -132,6 +132,10 @@ export default {
     };
   },
   computed: {
+    pageStateOptions() {
+      return { filter: this.filter, page: this.page }
+    },
+
     end() {
       return 6 * this.page;
     },
@@ -170,6 +174,7 @@ export default {
       this.ticker = e;
       this.add();
     },
+
     subscribeToUpdates(tickerName) {
       setInterval(async () => {
         const f = await fetch(
@@ -194,11 +199,8 @@ export default {
       };
       this.filter = "";
       if (!this.tickers.find((t) => t.name === currentTicker.name)) {
-        this.tickers.push(currentTicker);
-        localStorage.setItem(
-          "cryptonomicon-list",
-          JSON.stringify(this.tickers)
-        );
+        this.tickers = [...this.tickers, currentTicker]
+
         this.subscribeToUpdates(currentTicker.name);
         this.ticker = "";
       } else {
@@ -220,34 +222,45 @@ export default {
 
     select(ticker) {
       this.selectedTicker = ticker;
-      this.graph = [];
+
     },
 
     handleDelete(tickerToRemove) {
-  
+
       this.tickers = this.tickers.filter((t) => t !== tickerToRemove);
-        if(this.selectedTicker == tickerToRemove) {
-          this.selectedTicker = "";
-        }
+      if (this.selectedTicker == tickerToRemove) {
+        this.selectedTicker = "";
+      }
 
 
     }
 
   },
   watch: {
+    tickers() {
+      localStorage.setItem(
+        "cryptonomicon-list",
+        JSON.stringify(this.tickers)
+      );
+    },
+    selectedTicker() {
+      this.graph = [];
+    },
     paginatedTickers() {
       if (this.paginatedTickers.length == 0 && this.page > 1) {
-        this.page = this.page-1
-        
+        this.page = this.page - 1
+
       }
     },
     filter() {
       this.page = 1;
-      history.pushState(null, document.title, `${window.location.pathname}?filter=${this.filter}&page=${this.page}`)
     },
     page() {
-      history.pushState(null, document.title, `${window.location.pathname}?filter=${this.filter}&page=${this.page}`)
-    }
+
+    },
+    pageStateOptions(v) {
+      history.pushState(null, document.title, `${window.location.pathname}?filter=${v.filter}&page=${v.page}`)
+    },
   },
   created() {
     fetch(
