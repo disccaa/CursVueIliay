@@ -41,7 +41,7 @@
         <hr class="w-full border-t border-gray-600 my-4" />
         <div>
 
-          <button v-if="page > 1" @click="page-=1"
+          <button v-if="page > 1" @click="page -= 1"
             class="my-4 inline-flex items-center py-2 px-4 border border-transparent shadow-sm text-sm leading-4 font-medium rounded-full text-white bg-gray-600 hover:bg-gray-700 transition-colors duration-300 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 mr-5">
             Назад
           </button>
@@ -56,7 +56,7 @@
             class="pr-10 border-gray-300 text-gray-900 focus:outline-none focus:ring-gray-500 focus:border-gray-500 sm:text-sm rounded-md"
             placeholder="Filter" />
         </div>
-        <div>{{page}}</div>
+        <div>{{ page }}</div>
         <hr class="w-full border-t border-gray-600 my-4" />
         <div class="mt-5 grid grid-cols-1 gap-5 sm:grid-cols-3">
           <div v-for="t in paginatedTickers" :key="t.name" @click="select(t)" :class="{
@@ -110,7 +110,7 @@
 
 <script>
 import { isProxy, toRaw } from "vue";
-import { loadTickers } from './api.js'
+import { subscribeToTickers, unsubscribeToTickers } from './api.js'
 
 export default {
   name: "App",
@@ -133,6 +133,7 @@ export default {
     };
   },
   computed: {
+
     pageStateOptions() {
       return { filter: this.filter, page: this.page }
     },
@@ -168,6 +169,9 @@ export default {
 
   },
   methods: {
+    updateTicker(tickerName, price) {
+      this.tickers.filter(t => t.name === tickerName).forEach(t => t.price = price)
+    },
     formatPrice(price) {
       if (price === '-') {
         return price;
@@ -182,14 +186,14 @@ export default {
     },
 
     async updateTickers() {
-      if (!this.tickers.length) {
-        return
-      }
-      const exchangeData = await loadTickers(this.tickers.map(t => t.name));
-      this.tickers.forEach(t => {
-        const price = exchangeData[t.name.toUpperCase()]
-        t.price = price ?? '-';
-      })
+      // if (!this.tickers.length) {
+      //   return
+      // }
+
+      // this.tickers.forEach(t => {
+      //   const price = exchangeData[t.name.toUpperCase()]
+      //   t.price = price ?? '-';
+      // })
     },
 
     add() {
@@ -201,7 +205,11 @@ export default {
       if (!this.tickers.find((t) => t.name === currentTicker.name)) {
         this.tickers = [...this.tickers, currentTicker]
 
-        // this.subscribeToUpdates(currentTicker.name);
+        subscribeToTickers(currentTicker.name, this.tickers.forEach(ticker => {
+          subscribeToTickers(ticker.name, (newPrice) => {
+            this.updateTicker(ticker.name, newPrice)
+          })
+        }));
         this.ticker = "";
       } else {
         this.copy = true;
@@ -231,7 +239,7 @@ export default {
       if (this.selectedTicker == tickerToRemove) {
         this.selectedTicker = "";
       }
-
+      unsubscribeToTickers(tickerToRemove.name)
 
     }
 
@@ -281,12 +289,14 @@ export default {
     }
 
 
-
-
     const tickersData = localStorage.getItem("cryptonomicon-list");
     if (tickersData) {
       this.tickers = JSON.parse(tickersData);
-      setInterval(this.updateTickers, 5000)
+      this.tickers.forEach(ticker => {
+        subscribeToTickers(ticker.name, (newPrice) => {
+          this.updateTicker(ticker.name, newPrice)
+        })
+      })
     }
   },
 };
